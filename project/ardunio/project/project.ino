@@ -7,8 +7,8 @@
 
 #include <Servo.h>
 #include<SoftwareSerial.h>
-SoftwareSerial myW_r(10, 11); // new wifi
-SoftwareSerial myW_s(2,  3); // old wifi
+SoftwareSerial myW_r(10, 11);
+SoftwareSerial myW_s(2,  3);
 
 // tercker...
 Servo horizontal;
@@ -96,10 +96,10 @@ int readWaterLevel = 0;
 String data;
 String dataName;
 String dataValue;
-String powerName[3] = {"default", "power/pump", "power/ultraSonic"};
-String powerVal[3] = {""};
+String powerName[3] = {"default", "pump", "ultraSonic"};
+String powerVal[3] = {"off", "off", "off"};
 String sensorName[4] = {"temperature", "airHumidity", "soilHumidity", "warningSystem"};
-String sensorVal[4] = {""};
+String sensorVal[4] = {"11", "22", "33", "44"};
 
 void setup() {
   //  horizontal.attach(31);
@@ -108,7 +108,7 @@ void setup() {
   //    vertical.write(45);
   //  horizontal.write(90);
   //  vertical.write(90);
-  delay(1000);
+  //  delay(1000);
   dht.begin();
   Serial.begin(9600);
   lcd.begin(16, 2);
@@ -121,11 +121,11 @@ void setup() {
   pinMode(waterPumpIn, OUTPUT);
   pinMode(buzer, OUTPUT);
   myW_r.begin(9600);
+  myW_s.begin(9600);
   for (int i = startNLed; i <= endNLed; i++) {
     pinMode(i, OUTPUT);
     digitalWrite(i, LOW);
   }
-
   for (int i = startALed; i <= endALed; i++)
     pinMode(i, OUTPUT);
 }
@@ -134,13 +134,13 @@ void loop() {
   //  tracker();
   SetData();
   db();
-  db();
+  //  db();
   SetPower();
 }
 
 void SetData() {
   //  tracker();
-LedAndAlarm(checkWarning);  
+  LedAndAlarm(checkWarning);
   WaterLevel();
   airhumidityAndTemperature();
   humidityWater();
@@ -169,12 +169,12 @@ void SetPower() {
     else {
       i = 0;
       checkWarning = false;
-//      digitalWrite(buzer, 0);
+      //      digitalWrite(buzer, 0);
     }
     if (i == 2) {
       i = 0;
       checkWarning = true;
-//      digitalWrite(buzer, 1);
+      //      digitalWrite(buzer, 1);
     }
   }
 }
@@ -307,7 +307,6 @@ void LedAndAlarm(bool Alarm) {
     }
     delayALed++;
   }
-  //  Serial.println(String(delayNLed));
 }
 void getDistance() {
   digitalWrite(trigPin, LOW);
@@ -317,43 +316,45 @@ void getDistance() {
   digitalWrite(trigPin, LOW);
   duration = pulseIn(echoPin, HIGH);
   durationVal = int(duration * 0.034 / 2);
-  //  Serial.println(durationVal);
   if (durationVal != last_duration) {
     last_duration = durationVal;
   } else {
     Distance = duration * 0.034 / 2;
-    //    Serial.println(String(Distance));
     sensorVal[3] = String(durationVal);
-    //    Serial.println(sensorVal[3]);
   }
 }
 
-
+String power = "";
 void db() {
-  if (myW_r.available()) {
+  while (myW_r.available()) {
     char x = myW_r.read();
-    if (x == '\n') {
-      if (y == 0 && data == powerName[0] || data == powerName[1] || data == powerName[2]) {
-        dataName = data;
-        y = 1;
-      }
-      else if (y == 1) {
-        dataValue = data;
-        Serial.print("FROM SERIAL: "  + dataName + ':' + dataValue + '\n');
-        if (dataName == powerName[0]) powerVal[0] = dataValue;
-        else if (dataName == powerName[1]) powerVal[1] = dataValue;
-        else if (dataName == powerName[2]) powerVal[2] = dataValue;
-        myW_s.begin(9600);
-        myW_s.print(sensorName[ii] + '\n' + sensorVal[ii] + '\n');
-        myW_r.begin(9600);
-        ii++;
-        if (ii == 4) ii = 0;
-        y = 0;
-      }
+    if (x == ':') {
+      power = data;
       data = "";
+    }
+    else if (x == ',') {
+      for (int i = 0; i < 3; i++) {
+        if (power == powerName[i]) {
+          powerVal[i] = data;
+          power = "";
+          data = "";
+          Serial.println(powerName[y] + " --> " + powerVal[y]);
+          y++;
+          if (y == 3) {
+            y = 0;
+          }
+        }
+      }
     }
     else data += String(x);
   }
+  data = "";
+  for (int i = 0; i < 4; i++) {
+    data = sensorName[i] + ":" + sensorVal[i] + ",";
+    myW_s.print(data);    
+  }
+  myW_s.print("\n");
+  data = "";
 }
 
 void airhumidityAndTemperature() {
@@ -370,18 +371,14 @@ void airhumidityAndTemperature() {
 int WaterLevel() {
   digitalWrite(sensorPower, HIGH);
   digitalWrite(52, HIGH);
-  //  delay(10);
-
   readWaterLevel = analogRead(sensorPin);
   readWaterLevel = 100 - map(readWaterLevel, 1023, 0, 0, 100);
-
   digitalWrite(sensorPower, LOW);
   digitalWrite(52, LOW);
   if (readWaterLevel < 30)
     digitalWrite(waterPumpIn, HIGH);
   else
     digitalWrite(waterPumpIn, LOW);
-  //  Serial.println(readWaterLevel);
 }
 
 void tracker() {

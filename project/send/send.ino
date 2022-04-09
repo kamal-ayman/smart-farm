@@ -1,6 +1,4 @@
 // send to db...
-#include <SoftwareSerial.h>
-SoftwareSerial myW(0, 2);
 #include <ESP8266WiFi.h>
 #include <FirebaseArduino.h>
 #define FIREBASE_HOST "farm-app-9238a-default-rtdb.firebaseio.com"
@@ -8,11 +6,6 @@ SoftwareSerial myW(0, 2);
 #define WIFI_SSID "oliver"
 #define WIFI_PASSWORD "123123123"
 #include <user_interface.h>
-
-String data;
-String dataName;
-String dataValue;
-int i = 0;
 
 uint8_t mac[] = {0x06, 0x07, 0x08, 0x09, 0x10, 0x11};
 
@@ -36,20 +29,40 @@ void setup() {
   WiFi.persistent(true);
 }
 
+String sensorName[4] = {"temperature", "airHumidity", "soilHumidity", "warningSystem"};
+String sensorVal[4] = {"0", "0", "0", "0"};
+String data;
+
+// "{\"sensor\":\"gps\",\"time\":1351824120,\"data\":[48.756080,2.302038]}";
+DynamicJsonBuffer jsonBuffer;
+String sensor = "";
 void loop() {
-  if (Serial.available())
+  while (Serial.available())
   {
     char x = Serial.read();
-    if (x == '\n') {
-      if (i == 0 && data == "temperature" || data == "airHumidity" || data == "soilHumidity" || data == "warningSystem") {
-        dataName = data;
-        i = 1;
+    if (x == ':') {
+      sensor = data;
+      data = "";
+    }
+    else if (x == ',') {
+      for (int i = 0; i < 4; i++) {
+        if (sensor == sensorName[i]) {
+          sensorVal[i] = data;
+          sensor = "";
+          data = "";
+        }
       }
-      else if (i == 1) {
-        dataValue = data;
-        Firebase.setString("data/" + dataName, dataValue);
-        i = 0;
+    }
+    else if (x == '\n') {
+      data = "{";
+      for (int i = 0; i < 4; i++) {
+        data += "\"" + sensorName[i] + "\":\"" + sensorVal[i] + "\"";
+        if (i == 4 - 1) break;
+        data += ",";
       }
+      data += "}";
+      JsonObject& root = jsonBuffer.parseObject(data);
+      Firebase.set("/data", root);
       data = "";
     }
     else data += String(x);

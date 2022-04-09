@@ -1,7 +1,4 @@
 // rec from db..
-#include<SoftwareSerial.h>
-SoftwareSerial my_r(0, 2);
-
 #include <ESP8266WiFi.h>
 #include <FirebaseArduino.h>
 #define FIREBASE_HOST "farm-app-9238a-default-rtdb.firebaseio.com"
@@ -10,7 +7,8 @@ SoftwareSerial my_r(0, 2);
 #define WIFI_PASSWORD "123123123"
 #include <user_interface.h>
 
-String sensorName[] = {"default", "power/pump", "power/ultraSonic"};
+String powerName[3] = {"default", "pump", "ultraSonic"};
+
 uint8_t mac[] = {0x00, 0x01, 0x02, 0x03, 0x04, 0x05};
 
 void setup() {
@@ -33,13 +31,13 @@ void setup() {
   WiFi.persistent(true);
 }
 
-String sensorVal;
-int j = 0;
+String data;
+
 void loop() {
-  while (true) {
-    sensorVal = Firebase.getString(sensorName[j]);
-    Serial.print(sensorName[j++] + '\n' + sensorVal + '\n');
-    //  delay(500);
-    if (j == 3) j = 0;
+  data = "";
+  FirebaseObject ob = Firebase.get("power");
+  for (int i = 0; i < 3; i++) {
+    data += powerName[i] + ":" + ob.getString(powerName[i]) + ",";
   }
+  Serial.print(data);
 }
