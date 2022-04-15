@@ -6,9 +6,10 @@
 
 
 #include <Servo.h>
-#include<SoftwareSerial.h>
-SoftwareSerial myW_r(10, 11);
-SoftwareSerial myW_s(2,  3);
+//#include<SoftwareSerial.h>
+//SoftwareSerial myW_r(10, 11);
+//SoftwareSerial myW_s(2,  3);
+
 
 // tercker...
 Servo horizontal;
@@ -41,7 +42,7 @@ DHT dht(DHTPIN, DHTTYPE);
 
 // LCD Display...
 #include <LiquidCrystal.h>
-const short int rs = 19, en = 18, d4 = 17, d5 = 16, d6 = 15, d7 = 14;
+const short int rs = 21, en = 20, d4 = 19, d5 = 18, d6 = 17, d7 = 16;
 LiquidCrystal lcd(rs, en, d4, d5, d6, d7);
 
 // Display...
@@ -70,11 +71,7 @@ float Distance = 0;
 float last;
 float sizeOfNLed = minDistanceOfNLed / nled;
 const short int buzer = 8;
-
 bool checkWarning = false;
-//int leds = 5;
-//int ledr = 30;
-//int ledn;
 
 // Water Humidity...
 int percentHumidityWaterValue = 0;
@@ -110,7 +107,9 @@ void setup() {
   //  vertical.write(90);
   //  delay(1000);
   dht.begin();
-  Serial.begin(9600);
+
+//  Serial.begin(115200);
+  Serial3.begin(115200);
   lcd.begin(16, 2);
   pinMode(sensorPower, OUTPUT);
   pinMode(52, OUTPUT);
@@ -120,14 +119,16 @@ void setup() {
   pinMode(waterPumpOut, OUTPUT);
   pinMode(waterPumpIn, OUTPUT);
   pinMode(buzer, OUTPUT);
-  myW_r.begin(9600);
-  myW_s.begin(9600);
+  //  myW_r.begin(9600);
+  //  myW_s.begin(9600);
   for (int i = startNLed; i <= endNLed; i++) {
     pinMode(i, OUTPUT);
     digitalWrite(i, LOW);
   }
   for (int i = startALed; i <= endALed; i++)
     pinMode(i, OUTPUT);
+
+  //  delay(3000);
 }
 
 void loop() {
@@ -324,39 +325,60 @@ void getDistance() {
   }
 }
 
+
+// send = 2 -> 0
+// rec = 10 -> 3
 String power = "";
+bool s = true;
+int Try = 0;
+
 void db() {
-  while (myW_r.available()) {
-    char x = myW_r.read();
-    if (x == ':') {
-      power = data;
-      data = "";
-    }
-    else if (x == ',') {
-      for (int i = 0; i < 3; i++) {
-        if (power == powerName[i]) {
-          powerVal[i] = data;
-          power = "";
-          data = "";
-          Serial.println(powerName[y] + " --> " + powerVal[y]);
-          y++;
-          if (y == 3) {
-            y = 0;
+  rec();
+}
+void rec() {
+  for (Try = 0; Try < 2; Try++) {
+    while (Serial3.available()) {
+      char x = Serial3.read();
+      if (x == ':') {
+        power = data;
+        data = "";
+      }
+      else if (x == ',') {
+        for (int i = 0; i < 3; i++) {
+          if (power == powerName[i]) {
+            powerVal[i] = data;
+            power = "";
+            data = "";
+            y++;
+            if (y == 3) {
+              y = 0;
+              s = true;
+              Send();
+            }
           }
         }
+        if (s) break;
       }
+      else data += String(x);
     }
-    else data += String(x);
+    data = "";
+    if (s) break;
   }
-  data = "";
-  for (int i = 0; i < 4; i++) {
-    data = sensorName[i] + ":" + sensorVal[i] + ",";
-    myW_s.print(data);    
+  if (Try == 2) {
+    Send();
   }
-  myW_s.print("\n");
-  data = "";
+  s = false;
 }
 
+void Send() {
+    for (int i = 0; i < 4; i++) {
+      data += sensorName[i] + ":" + sensorVal[i] + ",";
+    }
+    data += "\n";
+    Serial3.print(data);
+//    myW_s.print(data);
+    data = "";
+}
 void airhumidityAndTemperature() {
   int airHumidityVal = dht.readHumidity();
   int temperatureVal = dht.readTemperature();

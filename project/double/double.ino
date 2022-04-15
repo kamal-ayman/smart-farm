@@ -10,14 +10,17 @@
 uint8_t mac[] = {0x06, 0x07, 0x08, 0x09, 0x10, 0x11};
 
 void setup() {
- 
+  //  ESP.wdtDisable();
+  //  ESP.wdtEnable(1000);
+  Serial.begin(115200);
   WiFi.mode(WIFI_STA);
-  WiFi.hostname("send_wifi_by_oliver");
+  WiFi.hostname("wifi_by_oliver");
   wifi_set_macaddr(STATION_IF, &mac[0]);
   WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
   Serial.print("connecting\n");
   while (WiFi.status() != WL_CONNECTED) {
     Serial.print(".\n");
+    //    ESP.wdtFeed();
     delay(100);
   }
   Serial.print('\n');
@@ -27,20 +30,24 @@ void setup() {
   Firebase.begin(FIREBASE_HOST, FIREBASE_AUTH);
   WiFi.setAutoReconnect(true);
   WiFi.persistent(true);
-//  Serial.begin(9600);
-  Serial.begin(115200);
+
 }
 
 String sensorName[4] = {"temperature", "airHumidity", "soilHumidity", "warningSystem"};
 String sensorVal[4] = {"0", "0", "0", "0"};
+String powerName[3] = {"default", "pump", "ultraSonic"};
 String data;
 
-// "{\"sensor\":\"gps\",\"time\":1351824120,\"data\":[48.756080,2.302038]}";
 DynamicJsonBuffer jsonBuffer;
 String sensor = "";
+
 void loop() {
-  while (Serial.available())
-  {
+//  ESP.wdtFeed();
+  Send();
+}
+
+void Send() {
+  while (Serial.available()) {
     char x = Serial.read();
     if (x == ':') {
       sensor = data;
@@ -65,8 +72,20 @@ void loop() {
       data += "}";
       JsonObject& root = jsonBuffer.parseObject(data);
       Firebase.set("/data", root);
+      jsonBuffer.clear();
       data = "";
+      rec();
     }
     else data += String(x);
   }
+}
+
+void rec() {
+  data = "";
+  FirebaseObject ob = Firebase.get("power");
+  for (int i = 0; i < 3; i++) {
+    data += powerName[i] + ":" + ob.getString(powerName[i]) + ",";
+  }
+  Serial.print(data);
+  data = "";
 }
